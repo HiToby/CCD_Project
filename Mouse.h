@@ -20,5 +20,6 @@
 #define _MOUSE_H_
 
 extern void MouseInit(void);
+extern void Set_MouseRange(int ,int ,int ,int)；
 
 #endif

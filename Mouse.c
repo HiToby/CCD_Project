@@ -92,10 +92,51 @@ int Mouse_BK[16][10];
 *Calls: // 被本函数调用的函数清单
 *Input: mode : 无;
 *Output: 错误信息
-*Return: 无
+*Return: a.ax 0000 不支持
+*			  ffff 支持	
 *Others: 无
 *************************************************/
 void MouseInit(void)
 {
 
+	union REGS uRegs;
+
+	/*设置鼠标功能号*/
+	uRegs.a.ax = 0;
+	int86(0x33,&uRegs,&uRegs);
+
+	/*返回错误信息*/
+	if(uRegs.a.ax == 0x0000)
+	{
+		printf("The mouse failed to initialize!");
+		delay(5000);
+		exit(1)
+	}
+}
+
+/*************************************************
+*Function: void Set_MouseRange(int ,int ,int ,int);
+*Description: 设置鼠标的移动范围
+*Calls: // 被本函数调用的函数清单
+*Input: mode : 无;
+*Output: 错误信息
+*Return: 无
+*Others: 无
+*************************************************/
+
+void Set_MouseRange(int x1,int y1,int x2,int y2)
+{
+	union REGS uRegs;
+	
+	/*设置横坐标范围*/
+	uRegs.x.ax = 7;
+	uRegs.x.cx = x1;
+	uRegs.x.dx = x2;
+	int86(0x33, &uRegs, &uRegs);
+	
+	/*设置纵坐标范围*/
+	uRegs.x.ax = 8;
+	uRegs.x.cx = y1;
+	uRegs.x.dx = y2;
+	int86(0x33, &uRegs, &uRegs);
 }

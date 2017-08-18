@@ -15,7 +15,7 @@
 	  Modification : VGAHI模式下图形绘制函数示例
 **********************************************************/
 
-//#define Debug_VGA
+#define Debug_VGA
 //#define Debug_SVGA
 
 #ifdef Debug_SVGA
