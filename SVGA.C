@@ -14,6 +14,7 @@
    	5. long rgbcolor64K (unsigned char r,unsigned char g, unsigned char b);
     6. void PutPixel64K (int x, int y, unsigned long color);
     7. unsigned long GetPixel64K (int x, int y);
+    8. void PutPixel256 (int x, int y, unsigned long color);
 
 *History:
 	1.Date:
@@ -24,12 +25,7 @@
 #include "SVGA.H"
 #include "Head.h"
 
-
-/*显存指针*/
-int far * const VideoBuffer = (int far *)0xA0000000L;
-
-/*VBE模式信息*/
-_ModeInfo ModeInfo;
+ _ModeInfo ModeInfo;
 
 /*********************SVGA相关函数************************/
 /**********************************************************
@@ -100,7 +96,7 @@ void Set_SVGAMode(unsigned int mode){
 	u_Regs.x.bx = mode;
 	int86(0x10, &u_Regs, &u_Regs);
 
-	if (mode == 0x117) {
+	if (mode == 0x117 || mode == 0x105) {
 		ModeInfo.XRes = 1024;
 		ModeInfo.YRes = 768;
 	}
@@ -226,7 +222,7 @@ unsigned int Get_ViewPage(void)
 *************************************************/
 long rgbcolor64K(unsigned char r,unsigned char g, unsigned char b)
 {
-	return (((((r >> 3) << 6) + (g >> 3)) << 5) + (b >> 3));
+	return (((((r >> 3) << 5) | (g >> 2)) << 6) | (b >> 3));
 }
 
 
@@ -238,10 +234,13 @@ long rgbcolor64K(unsigned char r,unsigned char g, unsigned char b)
 		color : 表示x,y所画点的颜色值
 *Output: // 对输出参数的说明。
 *Return: 无
-*Others: // 其它说明
+*Others: 再调用此函数时，如需先扫x方向请将x循环放在y循环后面
 *************************************************/
 void PutPixel64K (int x, int y, unsigned long color) 
 {
+
+	/*显存指针*/
+	unsigned int far * const VideoBuffer = (unsigned int far *)0xA0000000L;
 
 	/*页面号*/
 	unsigned char Page;
@@ -256,7 +255,7 @@ void PutPixel64K (int x, int y, unsigned long color)
 	/*计算偏移量的大小*/
 	Pos = (((long)y << 10) + (long)x);
 
-	Page = Pos >> 16; //代替除以64k算法
+	Page = Pos >> 15; //32K个点为一页，代替除以32K算法。因为显存指针为char型。所以多除2
 
 	Set_ViewPage(Page);
 
@@ -274,6 +273,9 @@ void PutPixel64K (int x, int y, unsigned long color)
 *************************************************/
 unsigned long GetPixel64K (int x, int y)
 {
+	/*显存指针*/
+	unsigned int far * const VideoBuffer = (unsigned int far *)0xA0000000L;
+
 	/*页面号*/
 	unsigned char Page;
 
@@ -287,9 +289,52 @@ unsigned long GetPixel64K (int x, int y)
 	/*计算偏移量的大小*/
 	Pos = (((long)y << 10) + (long)x);
 
-	Page = Pos >> 16; //代替除以64k算法
+	Page = Pos >> 15; //32K个点为一页，代替除以32K算法
 
 	Set_ViewPage(Page);
 
 	return VideoBuffer[Page] ;
+}
+
+/*************************************************
+*Function: void PutPixel256 (int x, int y, unsigned long color);
+*Description: 获取256色彩模式下画点函数
+*Calls: // 被本函数调用的函数清单
+*Input: x,y : 表示在x,y下画点
+*Output: // 对输出参数的说明。
+*Return: None
+*Others: 使用说明
+*		 由于256色需要设置调色板
+*		 {
+*		 	outportb(0x03c8,k);
+*		 	outportb(0x03c9,r >> 2);
+*		 	outportb(0x03c9,g >> 2);
+*		 	outportb(0x03c9,b >> 2);
+*		 }
+*		 如上所示修改调色板才可调用
+*		 且每页只可存在一个调色板
+*************************************************/
+void PutPixel256 (int x, int y, unsigned long color)
+{
+	/*显存指针*/
+	unsigned char far * const VideoBuffer = (unsigned char far *)0xA0000000L;
+
+	/*页面号*/
+	unsigned char Page;
+
+	/*显存位置偏移量*/
+	long Pos;
+
+	/*判断是否超出屏幕*/
+ 	if (x >= ModeInfo.XRes || x < 0 || y >= ModeInfo.YRes || y < 0)
+		return;
+
+	/*计算偏移量的大小*/
+	Pos = (((long)y << 10) + ((long)x));
+
+	Page = Pos >> 16; //64K个点为一页，代替除以64K算法
+
+	Set_ViewPage(Page);
+
+	VideoBuffer[Pos] = color;
 }

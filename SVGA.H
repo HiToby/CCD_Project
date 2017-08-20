@@ -12,8 +12,9 @@
     4.extern unsigned int Get_ViewPage(void);
     
     5.extern long rgbcolor64K (unsigned char r,unsigned char g, unsigned char b);
-    6.extern void PutPixel64K (int x, int y, unsigned long color);
-    7.extern unsigned long GetPixel64K (int x, int y);
+    6.extern void PutPixel256 (int x, int y, unsigned long color);
+    7.extern void PutPixel64K (int x, int y, unsigned long color);
+    8.extern unsigned long GetPixel64K (int x, int y);
 
 *History:
 	1.Date:
@@ -80,6 +81,18 @@ typedef struct _modeinfo//VBE模式信息共256字节
     char  reserve2[194];         //保留*/
 }_ModeInfo;
 
+/********************颜色以及调色板***********************/
+#define White 0xffff
+#define Black 0x0000
+
+//256色--画图调色板
+typedef struct
+{
+    unsigned char R;    /*红色分量，RED缩写*/
+    unsigned char G;    /*绿色分量，GREEN缩写*/
+    unsigned char B;    /*蓝色分量，BLUE缩写*/
+} COLORS256;
+
 /*********************SVGA相关函数************************/
 extern void Set_SVGAMode(unsigned int);
 extern unsigned int Get_SVGAMode(void);
@@ -89,6 +102,8 @@ extern unsigned int Get_ViewPage(void);
 /*********************画图相关函数************************/
 extern long rgbcolor64K (unsigned char r,unsigned char g, unsigned char b);
 extern void PutPixel64K (int x, int y, unsigned long color);
+extern void PutPixel64K1 (int x, int y, unsigned long color);
 extern unsigned long GetPixel64K (int x, int y);
+extern void PutPixel256 (int x, int y, unsigned long color);
 
 #endif

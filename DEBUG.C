@@ -15,12 +15,15 @@
 	  Modification : VGAHI模式下图形绘制函数示例
 **********************************************************/
 
-#define Debug_VGA
-//#define Debug_SVGA
+//#define Debug_VGA
+#define Debug_SVGA
+
+#include "Head.h"
+#include "Mouse.h"
 
 #ifdef Debug_SVGA
 	#include "SVGA.H"
-	#define Debug_SVGA
+	#define Debug
 #endif
 
 #ifdef Debug_VGA
@@ -30,15 +33,34 @@
 
 
 #ifdef Debug
+extern _ModeInfo ModeInfo;
 
 int main(){
 
-	/**************************************   0x117模式下PutPixel64K函数检测
-	int x,y,i,j;
-	Set_SVGAMode(0x104);
-	for (x = 10; x <= 100 ; x++)
-		for (y = 10; y <= 100; y++)
-		putpixel(x,y,0xffff);
+	/**************************************   0x117模式下 PutPixel64K 以及 GetPixel64K 函数检测
+	int x,y,i,j,k,r,g,b;
+
+	Set_SVGAMode(0x117);
+
+	//	PutPixel64K  &  rgbcolor64K
+	for (x = 0; x < 100; x++)
+		for (y = 0; y < 100; y++)
+		{
+			PutPixel64K (x,y,rgbcolor64K(0x94,0x00,0xd3));
+		//	PutPixel256(x,y,10);
+		// getch();
+		}
+
+	//	GetPixel64K
+	for (x = 200; x < 300; x++)
+		for (y = 500; y < 600; y++)
+		{
+			PutPixel64K (x,y,GetPixel64K(x - 200, y - 500));
+		//	PutPixel256(x,y,10);
+		// getch();
+		}
+
+	getch(); //画出图形后需停留观察图形
 	return 0;
 	//*/
 
@@ -111,6 +133,88 @@ int main(){
 	closegraph();
 	getchar();
 	return 0;
+	//*/
+
+	/**************************************  鼠标检测
+	_Mouse Old_Mouse, New_Mouse = {0,0,0,1};
+	int i,j; // 循环变量
+
+	Set_SVGAMode(0x117);
+	MouseReset();
+	// MouseInit();
+	// Set_MouseRange(0,0,ModeInfo.XRes - 1,ModeInfo.YRes - 1);
+	Get_MouseBK(New_Mouse);
+	Get_MouseStatus(&New_Mouse);
+	Old_Mouse = New_Mouse;
+
+	while (1){
+		// Get_MouseStatus  &  If_MousePress 函数检测程序段，需关闭SVGA模式
+		// Get_MouseStatus(&New_Mouse);
+		// printf("Mouse.x = %d ; Mouse.y = %d ; Mouse.button = %d", New_Mouse.x,New_Mouse.y,New_Mouse.button);
+		// delay(20);
+		// system("cls");
+		// if(If_MousePress(0,0,10,10,New_Mouse) == 1)
+			// exit(1);
+	
+		//
+		// Draw_Mouse 函数检测程序段
+		New_Mouse.x = 200;
+		New_Mouse.y = 200;
+		New_Mouse.shape = 1;
+		Draw_Mouse(New_Mouse);
+		// Draw_MouseBK  &  Get_MouseBK函数检测程序段
+		for(New_Mouse.y = i = 50, j = 50; j <= 200; j++)
+		{
+			New_Mouse.x = j;
+			Draw_MouseBK(Old_Mouse);
+			Get_MouseBK(New_Mouse);
+			Draw_Mouse(New_Mouse);
+			delay(50);
+		}
+		
+		//综合检测程序段
+		if(If_MousePress(0,0,50,50,New_Mouse) == 1)
+			exit(1);
+		Get_MouseStatus(&New_Mouse);
+		if (New_Mouse.x == Old_Mouse.x && New_Mouse.y == Old_Mouse.y)
+		{
+			delay(100);
+			Draw_MouseBK(Old_Mouse);
+			// delay(500);
+			Old_Mouse = New_Mouse;
+			continue;
+		}
+		else if (New_Mouse.x >= 0 && New_Mouse.x <= 300)
+		{
+			New_Mouse.shape = 1;
+			Draw_MouseBK(Old_Mouse);
+			Get_MouseBK(New_Mouse);
+			Draw_Mouse(New_Mouse);
+			delay(50);
+			Old_Mouse = New_Mouse;
+			continue;
+		}
+		else if (New_Mouse.x >= 300 && New_Mouse.x <= 550)
+		{
+			New_Mouse.shape = 2;
+			Draw_MouseBK(Old_Mouse);
+			Get_MouseBK(New_Mouse);
+			Draw_Mouse(New_Mouse);
+			Old_Mouse = New_Mouse;
+			delay(50);
+			continue;
+		}
+		else if (New_Mouse.x >= 550 && New_Mouse.x < 768)
+		{
+			New_Mouse.shape = 3;
+			Draw_MouseBK(Old_Mouse);
+			Get_MouseBK(New_Mouse);
+			Draw_Mouse(New_Mouse);
+			Old_Mouse = New_Mouse;
+			delay(50);
+			continue;
+		}
+	}
 	//*/
 }
 #endif
