@@ -6,15 +6,21 @@
 *Description: 图形界面初始化
 *Others: 
 *Function List:
-	1. void Set_SVGAMode(unsigned int);
+    1. void Set_SVGAMode(unsigned int);
     2. unsigned int Get_SVGAMode(void);
     3. void Set_ViewPage(unsigned int);
     4. unsigned int Get_ViewPage(void);
-   
-   	5. long rgbcolor64K (unsigned char r,unsigned char g, unsigned char b);
+
+    5. long rgbcolor64K (unsigned char r,unsigned char g, unsigned char b);
     6. void PutPixel64K (int x, int y, unsigned long color);
-    7. unsigned long GetPixel64K (int x, int y);
-    8. void PutPixel256 (int x, int y, unsigned long color);
+    7. void PutPixel64K_Xor (int x, int y, unsigned long color);
+    8. unsigned long GetPixel64K (int x, int y);
+    9. void PutPixel256 (int x, int y, unsigned long color);
+
+    10. void Get_BmpFileHeader(FILE*, _BITMAPFileHeader*);
+    11. void Get_BmpInfoHeader(FILE*, _BITMAPInfoHeader*);
+    12. void Draw_Bmp64K(int, int, const char *);
+    13. void Draw_Bmp64K_Xor(int, int, const char *);
 
 *History:
 	1.Date:
@@ -23,9 +29,15 @@
 
 **********************************************************/
 #include "SVGA.H"
-#include "Head.h"
 
+//显示模式相关信息
  _ModeInfo ModeInfo;
+ //像素点颜色定义
+typedef struct BmpPixel {
+	unsigned char B;
+	unsigned char G;
+	unsigned char R;
+}_BmpPixel;
 
 /*********************SVGA相关函数************************/
 /**********************************************************
@@ -77,7 +89,6 @@ ax  说 明
 		0x118		1024*768	16.8M		8:8:8
 **********************************************************/
 
-
 /*************************************************
 *Function: void Set_SVGAMode(unsinged int mode);
 *Description: 设置并初始化显示模式，返回VBE特定信息
@@ -96,13 +107,17 @@ void Set_SVGAMode(unsigned int mode){
 	u_Regs.x.bx = mode;
 	int86(0x10, &u_Regs, &u_Regs);
 
-	if (mode == 0x117 || mode == 0x105) {
+	if (mode == 0x117 || mode == 0x105 || mode == 0x116 || mode == 0x104) {
 		ModeInfo.XRes = 1024;
 		ModeInfo.YRes = 768;
 	}
-	if (mode == 0x114) {
+	if (mode == 0x114 || mode == 0x113 || mode == 0x115) {
 		ModeInfo.XRes = 800;
 		ModeInfo.YRes = 600;
+	}
+	if (mode == 0x110 || mode == 0x111 || mode == 0x112) {
+		ModeInfo.XRes = 640;
+		ModeInfo.YRes = 480;
 	}
 
 	/*ax != 0x004f意味着初始化失败，输出错误信息见上,下同*/
@@ -222,7 +237,7 @@ unsigned int Get_ViewPage(void)
 *************************************************/
 long rgbcolor64K(unsigned char r,unsigned char g, unsigned char b)
 {
-	return (((((r >> 3) << 5) | (g >> 2)) << 6) | (b >> 3));
+	return (((((r >> 3) << 6) | (g >> 2)) << 5) | (b >> 3));
 }
 
 
@@ -263,6 +278,43 @@ void PutPixel64K (int x, int y, unsigned long color)
 }
 
 /*************************************************
+*Function:  void PutPixel64K_Xor (int x, int y, unsigned long color)
+*Description: 设置64K高色彩模式下异或画点画点函数
+*Calls: // 被本函数调用的函数清单
+*Input: x,y : 表示在x,y下画点
+		color : 表示x,y所画点的颜色值
+*Output: // 对输出参数的说明。
+*Return: 无
+*Others: 再调用此函数时，如需先扫x方向请将x循环放在y循环后面
+*************************************************/
+void PutPixel64K_Xor (int x, int y, unsigned long color) 
+{
+
+	/*显存指针*/
+	unsigned int far * const VideoBuffer = (unsigned int far *)0xA0000000L;
+
+	/*页面号*/
+	unsigned char Page;
+
+	/*显存位置偏移量*/
+	long Pos;
+
+	/*判断是否超出屏幕*/
+	if (x >= ModeInfo.XRes || x < 0 || y >= ModeInfo.YRes || y < 0)
+		return;
+
+	/*计算偏移量的大小*/
+	Pos = (((long)y << 10) + (long)x);
+
+	Page = Pos >> 15; //32K个点为一页，代替除以32K算法。因为显存指针为char型。所以多除2
+
+	Set_ViewPage(Page);
+
+	if (color != 0x0000)
+		VideoBuffer[Pos] ^= color;
+}
+
+/*************************************************
 *Function: unsigned long GetPixel64K (int x, int y);
 *Description: 获取64K高色彩模式下画点函数
 *Calls: // 被本函数调用的函数清单
@@ -293,7 +345,7 @@ unsigned long GetPixel64K (int x, int y)
 
 	Set_ViewPage(Page);
 
-	return VideoBuffer[Page] ;
+	return VideoBuffer[Pos] ;
 }
 
 /*************************************************
@@ -337,4 +389,262 @@ void PutPixel256 (int x, int y, unsigned long color)
 	Set_ViewPage(Page);
 
 	VideoBuffer[Pos] = color;
+}
+
+/*************************************************
+*Function: void Get_BmpFileHeader(FILE*, _BITMAPFileHeader*);
+*Description: 获取bmp位图文件的文件头
+*Calls: // 被本函数调用的函数清单
+*Input: fp : bmp位图文件指针
+*		BmpFH : 文件头指针
+*Output: // 对输出参数的说明。
+*Return: 无
+*Others: fread读取数据块无法达到要求暂不使用
+*************************************************/
+void Get_BmpFileHeader(FILE *fp,_BITMAPFileHeader *BmpFH)
+{
+
+	/*文件指针移至文件首*/
+	rewind(fp);
+
+	/*读取位图文件头*/
+	fread(BmpFH, sizeof(_BITMAPFileHeader), 1, fp);
+}
+
+/*************************************************
+*Function: void Get_BmpInfoHeader(FILE*, _BITMAPInfoHeader*);
+*Description: 获取bmp位图文件的信息头
+*Calls: // 被本函数调用的函数清单
+*Input: fp : bmp位图文件指针
+*		BmpIH : : 信息头指针
+*Output: // 对输出参数的说明。
+*Return: 无
+*Others: fread读取数据块无法达到要求暂不使用
+*************************************************/
+void Get_BmpInfoHeader(FILE *fp, _BITMAPInfoHeader *BmpIH){
+
+	/*文件指针移至文件首*/
+	rewind(fp);
+
+	/*文件指针移至信息头对应位置*/
+	fseek(fp, 14L, SEEK_SET); 
+	//偏移量大小不可使用sizeof(_BITMAPInfoHeader)
+	//结构体sizeof存在字节对齐问题
+
+	/*读取位图文件头*/
+	fread(BmpIH, sizeof(_BITMAPInfoHeader), 1, fp);
+}
+
+/*************************************************
+*Function: void Draw_Bmp64K(int x,int y,const char * BmpPath)
+*Description: bmp位图文件在64K色下贴图
+*Calls: // 被本函数调用的函数清单
+*Input: x,y : 贴图左上角的坐标
+*		BmpPath : 所贴图片的路径
+*Output: 错误信息
+*Return: 无
+*Others: // 其它说明
+*************************************************/
+void Draw_Bmp64K(int x,int y,const char * BmpPath)
+{
+	_BmpPixel * buffer;
+	FILE *fp;
+	_BITMAPFileHeader BmpFH;
+	_BITMAPInfoHeader BmpIH;
+	int LineBytes,i,j,ret;
+
+	/*打开bmp文件*/
+	fp = fopen(BmpPath, "rb");
+	if (fp == NULL)
+	{
+		printf("Error Bmp Path!!!\n");
+		delay(5000);
+		exit(1);
+	}
+	rewind(fp);
+
+	/*检测是否为bmp文件*/
+	//fseek(fp,0,SEEK_SET);
+	//ret = fread(&BmpFH.bfType,sizeof(BmpFH.bfType),1,fp);
+
+	//暂时不检测是否为bmp图片。！！！！！ 严禁放入非法图片
+	//if (BmpFH.bfType != "BM") 
+	//{
+	//	printf("The Picture is not BITMAP!!!\n");
+		// delay(5000);
+		// exit(1);
+	// }
+
+	/*检测是否为24位色图片*/
+	fseek(fp,28L,SEEK_SET);
+	fread(&BmpIH.biBitCount,2,1,fp);
+
+	if (BmpIH.biBitCount != 24) 
+	{
+		printf("The BITMAP BitCount is not 24!!!\n");
+		delay(5000);
+		exit(1);
+	}
+
+	/*检测是否采用压缩算法*/
+	fseek(fp,30L,SEEK_SET);
+	fread(&BmpIH.biCompression,4,1,fp);
+
+	if (BmpIH.biCompression != 0)
+	{
+		printf("The BITMAP has Compression!!!\n");
+		delay(5000);
+		exit(1);
+	}
+
+	/*检测图片大小是否超出屏幕范围*/
+	fseek(fp,18L,SEEK_SET);
+	fread(&BmpIH.biWidth,4,1,fp);
+	fread(&BmpIH.biHeight,4,1,fp);
+
+
+	if (BmpIH.biWidth > ModeInfo.XRes || BmpIH.biHeight > ModeInfo.YRes)
+	{
+		printf("The BITMAP is too big!!!\n");
+		delay(5000);
+		exit(1);
+	}
+
+	LineBytes = (BmpIH.biWidth * BmpIH.biBitCount / 8 + 3) / 4 * 4; // / 4 * 4---先整除4在乘以4
+	
+	/*开辟缓存一行像素的空间*/
+	if ((buffer = (_BmpPixel*)malloc(LineBytes)) == 0)
+	{
+		printf("Error malloc!!!\n");
+		delay(5000);
+		exit(1);
+	}
+
+	/*移动文件指针至图片数据开始处*/
+	fseek(fp,10L,SEEK_SET);
+	fread(&BmpFH.bfOffBits,4,1,fp);
+	fseek(fp,BmpFH.bfOffBits,SEEK_SET);
+
+	for (j = BmpIH.biHeight - 1; j >= 0; j--)
+	{
+		//读取一行像素点的信息
+		fread(buffer,LineBytes,1,fp);
+
+		//处理一行像素点信息
+		for (i = 0; i < BmpIH.biWidth; i++)
+		{
+			PutPixel64K(i + x, j + y, rgbcolor64K(buffer[i].R,buffer[i].G,buffer[i].B));
+		}
+	}
+
+	free(buffer);
+	fclose(fp);
+}
+
+/*************************************************
+*Function: Draw_Bmp64K_Xor(int x,int y,const char * BmpPath)
+*Description: bmp位图文件在64K色下异或贴图
+*Calls: // 被本函数调用的函数清单
+*Input: x,y : 贴图左上角的坐标
+*		BmpPath : 所贴图片的路径
+*Output: 错误信息
+*Return: 无
+*Others: // 其它说明
+*************************************************/
+void Draw_Bmp64K_Xor(int x,int y,const char * BmpPath)
+{
+	_BmpPixel * buffer;
+	FILE *fp;
+	_BITMAPFileHeader BmpFH;
+	_BITMAPInfoHeader BmpIH;
+	int LineBytes,i,j,ret,color;
+
+	/*打开bmp文件*/
+	fp = fopen(BmpPath, "rb");
+	if (fp == NULL)
+	{
+		printf("Error Bmp Path!!!\n");
+		delay(5000);
+		exit(1);
+	}
+	rewind(fp);
+
+	/*检测是否为bmp文件*/
+	//fseek(fp,0,SEEK_SET);
+	//ret = fread(&BmpFH.bfType,sizeof(BmpFH.bfType),1,fp);
+
+	//暂时不检测是否为bmp图片。！！！！！ 严禁放入非法图片
+	//if (BmpFH.bfType != "BM") 
+	//{
+	//	printf("The Picture is not BITMAP!!!\n");
+		// delay(5000);
+		// exit(1);
+	// }
+
+	/*检测是否为24位色图片*/
+	fseek(fp,28L,SEEK_SET);
+	fread(&BmpIH.biBitCount,2,1,fp);
+
+	if (BmpIH.biBitCount != 24) 
+	{
+		printf("The BITMAP BitCount is not 24!!!\n");
+		delay(5000);
+		exit(1);
+	}
+
+	/*检测是否采用压缩算法*/
+	fseek(fp,30L,SEEK_SET);
+	fread(&BmpIH.biCompression,4,1,fp);
+
+	if (BmpIH.biCompression != 0)
+	{
+		printf("The BITMAP has Compression!!!\n");
+		delay(5000);
+		exit(1);
+	}
+
+	/*检测图片大小是否超出屏幕范围*/
+	fseek(fp,18L,SEEK_SET);
+	fread(&BmpIH.biWidth,4,1,fp);
+	fread(&BmpIH.biHeight,4,1,fp);
+
+
+	if (BmpIH.biWidth > ModeInfo.XRes || BmpIH.biHeight > ModeInfo.YRes)
+	{
+		printf("The BITMAP is too big!!!\n");
+		delay(5000);
+		exit(1);
+	}
+
+	LineBytes = (BmpIH.biWidth * BmpIH.biBitCount / 8 + 3) / 4 * 4; // / 4 * 4---先整除4在乘以4
+	
+	/*开辟缓存一行像素的空间*/
+	if ((buffer = (_BmpPixel*)malloc(LineBytes)) == 0)
+	{
+		printf("Error malloc!!!\n");
+		delay(5000);
+		exit(1);
+	}
+
+	/*移动文件指针至图片数据开始处*/
+	fseek(fp,10L,SEEK_SET);
+	fread(&BmpFH.bfOffBits,4,1,fp);
+	fseek(fp,BmpFH.bfOffBits,SEEK_SET);
+
+	for (j = BmpIH.biHeight - 1; j >= 0; j--)
+	{
+		//读取一行像素点的信息
+		fread(buffer,LineBytes,1,fp);
+
+		//处理一行像素点信息
+		for (i = 0; i < BmpIH.biWidth; i++)
+		{
+			color =  rgbcolor64K(buffer[i].R,buffer[i].G,buffer[i].B);
+			if (color != 0x0000)
+				PutPixel64K_Xor(i + x, j + y, color);
+		}
+	}
+
+	free(buffer);
+	fclose(fp);
 }

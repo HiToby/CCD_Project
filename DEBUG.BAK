@@ -248,14 +248,13 @@ int main(){
 	//***********************************  异或贴图
 	for (i = old_i = 0; i < 1024; i++)
 		for (j = old_j = 0; j < 768; j++)
-			PutPixel64K(i,j,0xffff);
-	for (i = old_i = 10; i < 20; i++)
-		for (j = old_j = 10; j < 20; j++)
+			PutPixel64K(i,j,0xffff)
+	for (i = old_i = 10; i < 50; i++)
+		for (j = old_j = 10; j < 50; j++)
 		{
 			old_i = i;
 			old_j = j;
 			Draw_Bmp64K_Xor(i,j,"./1.bmp");
-			delay(200);
 			Draw_Bmp64K_Xor(old_i,old_j,"./1.bmp");
 			//delay(100);
 		}

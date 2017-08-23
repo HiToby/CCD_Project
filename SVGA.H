@@ -12,9 +12,15 @@
     4.extern unsigned int Get_ViewPage(void);
     
     5.extern long rgbcolor64K (unsigned char r,unsigned char g, unsigned char b);
-    6.extern void PutPixel256 (int x, int y, unsigned long color);
-    7.extern void PutPixel64K (int x, int y, unsigned long color);
+    6.extern void PutPixel64K (int x, int y, unsigned long color);
+    7.extern void PutPixel64K_Xor (int x, int y, unsigned long color);
     8.extern unsigned long GetPixel64K (int x, int y);
+    9.extern void PutPixel256 (int x, int y, unsigned long color);
+
+    10.extern void Get_BmpFileHeader(FILE*, _BITMAPFileHeader*);
+    11.extern void Get_BmpInfoHeader(FILE*, _BITMAPInfoHeader*);
+    12.extern void Draw_Bmp64K(int, int, const char *);
+    13.extern void Draw_Bmp64K_Xor(int, int, const char *);
 
 *History:
 	1.Date:
@@ -26,7 +32,11 @@
 #ifndef _SVGA_H_
 #define _SVGA_H_
 
-typedef struct _modeinfo//VBE模式信息共256字节
+#include "Head.h"
+
+/********************相关结构体定义***********************/
+//VBE模式信息共256字节
+typedef struct _modeinfo
 {
     short ModeAttr;           //模式的属性
     char  WinAAttr;
@@ -49,37 +59,38 @@ typedef struct _modeinfo//VBE模式信息共256字节
     char  BankSize;            //CGA每组扫描线的大小
     char  NumberOfImagePages;  //可同时载入的最大满屏图像数
     char  reserve1;            //为页面功能保留
-
-/*//对直接写颜色模式的定义区域
-    char  RedMaskSize;         //红色所占的位数
-    char  RedFieldPosition;    //红色的最低有效位位置
-    char  GreenMaskSize;       //绿色所占位数
-    char  GreenFieldPosition;  //绿色的最低有效位位置
-    char  BlueMaskSize;        //蓝色所占位数
-    char  BlueFieldPosition;   //蓝色最低有效位位置
-    char  RsvMaskSize;         //保留色所占位数
-    char  RsvFieldPosition;    //保留色的最低有效位位置
-    char  DirectColorModeInfo; //直接颜色模式属性
-
-//以下为VBE2.0版本以上定义
-    char  far *PhyBasePtr;     //可使用的大的帧缓存时为指向其首址的32位物理地址
-    long  OffScreenMenOffset;  //帧缓存首址的32位偏移量
-    short OffScreenMemSize;    //可用的,连续的显示缓冲区,以KB为单位
-
-//以下为VBE3.0版以上定义
-    short LincharsPerScanLine;   //线形缓冲区中每条扫描线的长度,以字节为单位
-    char  BnkNumberOfImagePages; //使用窗口功能时的显示页面数
-    char  LinNumberOfImagePages; //使用大的线性缓冲区时的显示页面数
-    char  LinRedMaskSize;        //使用大的线性缓冲区时红色所占位数
-    char  LinRedFieldPosition;   //使用大的线性缓冲区时红色最低有效位位置
-    char  LinGreenMaskSize;      //使用大的线性缓冲区时绿色所占的位数
-    char  LinGreenFieldPosition; //使用大的线性缓冲区时绿色最低有效位位置
-    char  LinBlueMaskSize;       //使用大的线性缓冲区时蓝色所占的位数
-    char  LinBlueFieldPosition;  //使用大的线性缓冲区时蓝色最低有效位位置
-    char  LinRsvMaskSize;        //使用大的线性缓冲区时保留色所占位数
-    char  LinRsvFieldPosition;   //使用大的线性缓冲区时保留色最低有效位位置
-    char  reserve2[194];         //保留*/
 }_ModeInfo;
+
+//位图文件头BITMAPFILEHEADER，是一个结构体类型。
+typedef struct tagBITMAPFILEHEADER      //该结构的长度是固定的，为14个字节。
+{  
+        unsigned int  bfType;                //2bytes-位图文件类型，对"*.bmp"文件而言，必须是0x424D，即字符串“BM”。
+        unsigned long int    bfSize;         //4bytes-位图文件大小，包括这14个字节。
+        unsigned int  bfReserved1;           //2bytes-Windows保留字，暂不用。
+        unsigned int  bfReserved2;           //2bytes-Windows保留字，暂不用。
+        unsigned long int    bfOffBits;      //4bytes-从文件头到实际的位图数据的偏移字节数.
+                                             //bitmap文件前3个部分(文件头、信息头、颜色表)的长度之和
+}_BITMAPFileHeader;  
+
+//位图信息头BITMAPINFOHEADER，一个结构体类型的数据结构
+typedef struct tagBITMAPINFOHEADER           //该结构的长度也是固定的，为40个字节。
+{
+    unsigned long int    biSize;             //4bytes-本结构的长度，为40个字节。
+    long int             biWidth;            //4bytes-位图的宽度，以像素为单位。
+    long int             biHeight;           //4bytes-位图的高度，以像素为单位。
+    unsigned int         biPlanes;           //2bytes-目标设备的级别，必须是1。
+    unsigned int         biBitCount;         //2bytes-每个像素所占的位数（bit）。
+                                             //其值必须为1（黑白图像）、4（16色图）、8（256色）、24（真彩色图）。
+                                             //新的BMP格式支持32位色。
+    unsigned long int    biCompression;      //4bytes-位图压缩类型。这里只讨论未经压缩的情况，即BI_RGB
+    unsigned long int    biSizeImage;        //4bytes-实际的位图数据占用的字节数。
+    long int             biXPelsPerMeter;    //4bytes-指定目标设备的水平分辨率，单位是像素/米。
+    long int             biYPelsPerMeter;    //4bytes-指定目标设备的垂直分辨率，单位是像素/米。
+    unsigned long int    biClrUsed;          //4bytes-位图实际用到的颜色数。
+                                             //如果该值为零，则用到的颜色数为2的biBitCount次幂。
+    unsigned long int    biClrImportant;     //4bytes-位图显示过程中重要的颜色数。
+                                             //如果该值为零，则认为所有的颜色都是重要的。
+}_BITMAPInfoHeader;
 
 /********************颜色以及调色板***********************/
 #define White 0xffff
@@ -93,6 +104,15 @@ typedef struct
     unsigned char B;    /*蓝色分量，BLUE缩写*/
 } COLORS256;
 
+//bmp位图对应颜色表
+typedef struct tagRGBQUAD               
+{
+    unsigned char   rgbBlue;            //该颜色的蓝色分量。
+    unsigned char   rgbGreen;           //该颜色的绿色分量。
+    unsigned char   rgbRed;             //该颜色的红色分量。
+    unsigned char   rgbReserved;        //保留字节，暂不用。
+}_RGBQUAD;
+
 /*********************SVGA相关函数************************/
 extern void Set_SVGAMode(unsigned int);
 extern unsigned int Get_SVGAMode(void);
@@ -102,8 +122,14 @@ extern unsigned int Get_ViewPage(void);
 /*********************画图相关函数************************/
 extern long rgbcolor64K (unsigned char r,unsigned char g, unsigned char b);
 extern void PutPixel64K (int x, int y, unsigned long color);
-extern void PutPixel64K1 (int x, int y, unsigned long color);
+extern void PutPixel64K_Xor (int x, int y, unsigned long color);
 extern unsigned long GetPixel64K (int x, int y);
 extern void PutPixel256 (int x, int y, unsigned long color);
+
+/*******************bmp位图相关函数***********************/
+extern void Get_BmpFileHeader(FILE *, _BITMAPFileHeader *);
+extern void Get_BmpInfoHeader(FILE *, _BITMAPInfoHeader *);
+extern void Draw_Bmp64K(int, int, const char *);
+extern void Draw_Bmp64K_Xor(int, int, const char *);
 
 #endif
