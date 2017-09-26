@@ -27,6 +27,8 @@
 #include <math.h>
 #include <time.h>
 
+#define sgn(x) ((x) > 0) ? 1 : (((x) < 0) ? -1 : 0)  // sgn函数
+
 extern char far *farptr (char far *p, long length);
 
 #endif

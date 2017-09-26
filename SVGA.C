@@ -22,11 +22,21 @@
     12. void Draw_Bmp64K(int, int, const char *);
     13. void Draw_Bmp64K_Xor(int, int, const char *);
 
-*History:
-	1.Date:
-      Author:
-      Modification:
+    14. void Draw_Line(int, int, int, int, int);
+    15. void Draw_Circle(int, int, int, int);
 
+*History:
+	1.Date: 2017/8/26
+      Author:YJH
+      Modification:
+      		1.放弃原有的计算page来计算页面方法，改用y >> 5(64K) y >> 4(256) 来计算新页面
+      		2.贴图函数放弃putpixel方法画点，改为直接写显存画点
+
+	2.Date: 2017/8/27
+	  Author: YJH
+	  Modification:
+	  		添加了画圆以及画线函数。算法采用bresenman算法
+	
 **********************************************************/
 #include "SVGA.H"
 
@@ -270,9 +280,9 @@ void PutPixel64K (int x, int y, unsigned long color)
 	/*计算偏移量的大小*/
 	Pos = (((long)y << 10) + (long)x);
 
-	Page = Pos >> 15; //32K个点为一页，代替除以32K算法。因为显存指针为char型。所以多除2
+	//Page = Pos >> 15; //32K个点为一页，代替除以32K算法。因为显存指针为char型。所以多除2
 
-	Set_ViewPage(Page);
+	Set_ViewPage(y >> 5);
 
 	VideoBuffer[Pos] = color;
 }
@@ -306,9 +316,9 @@ void PutPixel64K_Xor (int x, int y, unsigned long color)
 	/*计算偏移量的大小*/
 	Pos = (((long)y << 10) + (long)x);
 
-	Page = Pos >> 15; //32K个点为一页，代替除以32K算法。因为显存指针为char型。所以多除2
+	//Page = Pos >> 15; //32K个点为一页，代替除以32K算法。因为显存指针为char型。所以多除2
 
-	Set_ViewPage(Page);
+	Set_ViewPage(y >> 5);
 
 	if (color != 0x0000)
 		VideoBuffer[Pos] ^= color;
@@ -325,6 +335,7 @@ void PutPixel64K_Xor (int x, int y, unsigned long color)
 *************************************************/
 unsigned long GetPixel64K (int x, int y)
 {
+
 	/*显存指针*/
 	unsigned int far * const VideoBuffer = (unsigned int far *)0xA0000000L;
 
@@ -341,9 +352,9 @@ unsigned long GetPixel64K (int x, int y)
 	/*计算偏移量的大小*/
 	Pos = (((long)y << 10) + (long)x);
 
-	Page = Pos >> 15; //32K个点为一页，代替除以32K算法
+	//Page = Pos >> 15; //32K个点为一页，代替除以32K算法
 
-	Set_ViewPage(Page);
+	Set_ViewPage(y >> 5);
 
 	return VideoBuffer[Pos] ;
 }
@@ -368,6 +379,7 @@ unsigned long GetPixel64K (int x, int y)
 *************************************************/
 void PutPixel256 (int x, int y, unsigned long color)
 {
+
 	/*显存指针*/
 	unsigned char far * const VideoBuffer = (unsigned char far *)0xA0000000L;
 
@@ -384,9 +396,9 @@ void PutPixel256 (int x, int y, unsigned long color)
 	/*计算偏移量的大小*/
 	Pos = (((long)y << 10) + ((long)x));
 
-	Page = Pos >> 16; //64K个点为一页，代替除以64K算法
+	//Page = Pos >> 16; //64K个点为一页，代替除以64K算法
 
-	Set_ViewPage(Page);
+	Set_ViewPage(y >> 6);
 
 	VideoBuffer[Pos] = color;
 }
@@ -451,113 +463,18 @@ void Draw_Bmp64K(int x,int y,const char * BmpPath)
 	FILE *fp;
 	_BITMAPFileHeader BmpFH;
 	_BITMAPInfoHeader BmpIH;
+	long color;
 	int LineBytes,i,j,ret;
 
-	/*打开bmp文件*/
-	fp = fopen(BmpPath, "rb");
-	if (fp == NULL)
-	{
-		printf("Error Bmp Path!!!\n");
-		delay(5000);
-		exit(1);
-	}
-	rewind(fp);
+	/*显存指针*/
+	unsigned int far * const VideoBuffer = (unsigned int far *)0xA0000000L;		
 
-	/*检测是否为bmp文件*/
-	//fseek(fp,0,SEEK_SET);
-	//ret = fread(&BmpFH.bfType,sizeof(BmpFH.bfType),1,fp);
+	/*页面号*/
+	unsigned char Page;		
 
-	//暂时不检测是否为bmp图片。！！！！！ 严禁放入非法图片
-	//if (BmpFH.bfType != "BM") 
-	//{
-	//	printf("The Picture is not BITMAP!!!\n");
-		// delay(5000);
-		// exit(1);
-	// }
+	/*显存位置偏移量*/
+	long Pos;		
 
-	/*检测是否为24位色图片*/
-	fseek(fp,28L,SEEK_SET);
-	fread(&BmpIH.biBitCount,2,1,fp);
-
-	if (BmpIH.biBitCount != 24) 
-	{
-		printf("The BITMAP BitCount is not 24!!!\n");
-		delay(5000);
-		exit(1);
-	}
-
-	/*检测是否采用压缩算法*/
-	fseek(fp,30L,SEEK_SET);
-	fread(&BmpIH.biCompression,4,1,fp);
-
-	if (BmpIH.biCompression != 0)
-	{
-		printf("The BITMAP has Compression!!!\n");
-		delay(5000);
-		exit(1);
-	}
-
-	/*检测图片大小是否超出屏幕范围*/
-	fseek(fp,18L,SEEK_SET);
-	fread(&BmpIH.biWidth,4,1,fp);
-	fread(&BmpIH.biHeight,4,1,fp);
-
-
-	if (BmpIH.biWidth > ModeInfo.XRes || BmpIH.biHeight > ModeInfo.YRes)
-	{
-		printf("The BITMAP is too big!!!\n");
-		delay(5000);
-		exit(1);
-	}
-
-	LineBytes = (BmpIH.biWidth * BmpIH.biBitCount / 8 + 3) / 4 * 4; // / 4 * 4---先整除4在乘以4
-	
-	/*开辟缓存一行像素的空间*/
-	if ((buffer = (_BmpPixel*)malloc(LineBytes)) == 0)
-	{
-		printf("Error malloc!!!\n");
-		delay(5000);
-		exit(1);
-	}
-
-	/*移动文件指针至图片数据开始处*/
-	fseek(fp,10L,SEEK_SET);
-	fread(&BmpFH.bfOffBits,4,1,fp);
-	fseek(fp,BmpFH.bfOffBits,SEEK_SET);
-
-	for (j = BmpIH.biHeight - 1; j >= 0; j--)
-	{
-		//读取一行像素点的信息
-		fread(buffer,LineBytes,1,fp);
-
-		//处理一行像素点信息
-		for (i = 0; i < BmpIH.biWidth; i++)
-		{
-			PutPixel64K(i + x, j + y, rgbcolor64K(buffer[i].R,buffer[i].G,buffer[i].B));
-		}
-	}
-
-	free(buffer);
-	fclose(fp);
-}
-
-/*************************************************
-*Function: Draw_Bmp64K_Xor(int x,int y,const char * BmpPath)
-*Description: bmp位图文件在64K色下异或贴图
-*Calls: // 被本函数调用的函数清单
-*Input: x,y : 贴图左上角的坐标
-*		BmpPath : 所贴图片的路径
-*Output: 错误信息
-*Return: 无
-*Others: // 其它说明
-*************************************************/
-void Draw_Bmp64K_Xor(int x,int y,const char * BmpPath)
-{
-	_BmpPixel * buffer;
-	FILE *fp;
-	_BITMAPFileHeader BmpFH;
-	_BITMAPInfoHeader BmpIH;
-	int LineBytes,i,j,ret,color;
 
 	/*打开bmp文件*/
 	fp = fopen(BmpPath, "rb");
@@ -640,11 +557,239 @@ void Draw_Bmp64K_Xor(int x,int y,const char * BmpPath)
 		for (i = 0; i < BmpIH.biWidth; i++)
 		{
 			color =  rgbcolor64K(buffer[i].R,buffer[i].G,buffer[i].B);
+			// PutPixel64K(i + x, j + y, rgbcolor64K(buffer[i].R,buffer[i].G,buffer[i].B));
+
+			/*判断是否超出屏幕*/
+			if ((x + i) >= ModeInfo.XRes || (x + i) < 0 || (y + j) >= ModeInfo.YRes || (y + j) < 0)
+				continue;		
+
+			/*计算偏移量的大小*/
+			Pos = (((long)(y + j) << 10) + (long)(x + i));	
+
+			//Page = Pos >> 15; //32K个点为一页，代替除以32K算法。因为显存指针为char型。所以多除2		
+			Set_ViewPage((y + j) >> 5);	
+
+			VideoBuffer[Pos] = color;
+		}
+	}
+	
+	free(buffer);
+	fclose(fp);
+}
+
+/*************************************************
+*Function: Draw_Bmp64K_Xor(int x,int y,const char * BmpPath)
+*Description: bmp位图文件在64K色下异或贴图
+*Calls: // 被本函数调用的函数清单
+*Input: x,y : 贴图左上角的坐标
+*		BmpPath : 所贴图片的路径
+*Output: 错误信息
+*Return: 无
+*Others: // 其它说明
+*************************************************/
+void Draw_Bmp64K_Xor(int x,int y,const char * BmpPath)
+{
+	_BmpPixel * buffer;
+	FILE *fp;
+	_BITMAPFileHeader BmpFH;
+	_BITMAPInfoHeader BmpIH;
+	long color;
+	int LineBytes,i,j,ret;
+
+	/*显存指针*/
+	unsigned int far * const VideoBuffer = (unsigned int far *)0xA0000000L;		
+
+	/*页面号*/
+	unsigned char Page;		
+
+	/*显存位置偏移量*/
+	long Pos;	
+
+	/*打开bmp文件*/
+	fp = fopen(BmpPath, "rb");
+	if (fp == NULL)
+	{
+		printf("Error Bmp Path!!!\n");
+		delay(5000);
+		exit(1);
+	}
+	rewind(fp);
+
+	/*检测是否为bmp文件*/
+	//fseek(fp,0,SEEK_SET);
+	//ret = fread(&BmpFH.bfType,sizeof(BmpFH.bfType),1,fp);
+
+	//暂时不检测是否为bmp图片。！！！！！ 严禁放入非法图片
+	//if (BmpFH.bfType != "BM") 
+	//{
+	//	printf("The Picture is not BITMAP!!!\n");
+		// delay(5000);
+		// exit(1);
+	// }
+
+	/*检测是否为24位色图片*/
+	fseek(fp,28L,SEEK_SET);
+	fread(&BmpIH.biBitCount,2,1,fp);
+
+	if (BmpIH.biBitCount != 24) 
+	{
+		printf("The BITMAP BitCount is not 24!!!\n");
+		delay(5000);
+		exit(1);
+	}
+
+	/*检测是否采用压缩算法*/
+	fseek(fp,30L,SEEK_SET);
+	fread(&BmpIH.biCompression,4,1,fp);
+
+	if (BmpIH.biCompression != 0)
+	{
+		printf("The BITMAP has Compression!!!\n");
+		delay(5000);
+		exit(1);
+	}
+
+	/*检测图片大小是否超出屏幕范围*/
+	fseek(fp,18L,SEEK_SET);
+	fread(&BmpIH.biWidth,4,1,fp);
+	fread(&BmpIH.biHeight,4,1,fp);
+
+
+	if (BmpIH.biWidth > ModeInfo.XRes || BmpIH.biHeight > ModeInfo.YRes)
+	{
+		printf("The BITMAP is too big!!!\n");
+		delay(5000);
+		exit(1);
+	}
+
+	LineBytes = (BmpIH.biWidth * BmpIH.biBitCount / 8 + 3) / 4 * 4; // / 4 * 4---先整除4在乘以4
+	
+	/*开辟缓存一行像素的空间*/
+	if ((buffer = (_BmpPixel*)malloc(LineBytes)) == 0)
+	{
+		printf("Error malloc!!!\n");
+		delay(5000);
+		exit(1);
+	}
+
+	/*移动文件指针至图片数据开始处*/
+	fseek(fp,10L,SEEK_SET);
+	fread(&BmpFH.bfOffBits,4,1,fp);
+	fseek(fp,BmpFH.bfOffBits,SEEK_SET);
+
+	for (j = BmpIH.biHeight - 1; j >= 0; j--)
+	{
+		//读取一行像素点的信息
+		fread(buffer,LineBytes,1,fp);
+
+		//处理一行像素点信息
+		for (i = 0; i < BmpIH.biWidth; i++)
+		{
+			color =  rgbcolor64K(buffer[i].R,buffer[i].G,buffer[i].B);
+			//if (color != 0x0000)
+			//	PutPixel64K_Xor(i + x, j + y, color);
+
+			/*判断是否超出屏幕*/
+			if ((x + i) >= ModeInfo.XRes || (x + i) < 0 || (y + j) >= ModeInfo.YRes || (y + j) < 0)
+				continue;		
+
+			/*计算偏移量的大小*/
+			Pos = (((long)(y + j) << 10) + (long)(x + i));	
+
+			//Page = Pos >> 15; //32K个点为一页，代替除以32K算法。因为显存指针为char型。所以多除2		
+			Set_ViewPage((y + j) >> 5);	
+
 			if (color != 0x0000)
-				PutPixel64K_Xor(i + x, j + y, color);
+				VideoBuffer[Pos] ^= color;
 		}
 	}
 
 	free(buffer);
 	fclose(fp);
+}
+
+/*************************************************
+*Function: void Draw_Line(int, int, int, int, int)
+*Description: 64K色条件下，采用bresenham画线方法
+*Calls: // 被本函数调用的函数清单
+*Input: right,top,left,bottom 为直线的起点终点
+*		color 为直线颜色
+*Output: 错误信息
+*Return: 无
+*Others: // 其它说明
+*************************************************/
+void Draw_Line(int left, int top, int right, int bottom, int color)
+{
+	int d;
+	int dx,dy,dx2,dy2;
+	int xinc,yinc;
+	int dxy;
+	int half;
+	dx = abs(right - left);
+	dx2 = dx << 1;
+	dy = abs(bottom - top);
+	dy2 = dy << 1;
+	xinc = (right > left) ? 1 : (right == left ? 0 : -1);
+	yinc = (bottom > top) ? 1 : (bottom == top ? 0 : -1);
+
+	PutPixel64K(left, top, color);
+	if (dx >= dy)
+	{
+		d = dy2 - dx;
+		dxy = dy2 - dx2;
+		while (dx--)
+		{
+			if (d <= 0) d += dy2;
+			else {
+				d += dxy;
+				top += yinc;
+			}
+			PutPixel64K(left += xinc, top, color);
+		}
+	} else {
+		d = dx2 - dy;
+		dxy = dx2 - dy2;
+		while (dy--)
+		{
+			if (d <= 0) d += dx2;
+			else {
+				d += dxy;
+				left += xinc;
+			}
+			PutPixel64K(left, top += yinc, color);
+		}
+	}
+}
+
+/*************************************************
+*Function: void Draw_Circle(int, int, int, int)
+*Description: 64K色条件下，采用bresenham画圆方法
+*Calls: // 被本函数调用的函数清单
+*Input: centerx,centery 为圆心
+*		radius 为半径
+*		color 为直线颜色
+*Output: 错误信息
+*Return: 无
+*Others: // 其它说明
+*************************************************/
+void Draw_Circle(int centerx, int centery, int radius, int color)
+{
+	int x,y,d;
+	if (!radius) return;
+	y = radius;
+	d = 3 - radius << 1;
+	for (x = 0; x <= y; x++)
+	{
+		PutPixel64K(centerx + x,centery + y,color);
+		PutPixel64K(centerx + x,centery - y,color);
+		PutPixel64K(centerx - x,centery - y,color);
+		PutPixel64K(centerx - x,centery + y,color);
+		PutPixel64K(centerx + y,centery + x,color);
+		PutPixel64K(centerx + y,centery - x,color);
+		PutPixel64K(centerx - y,centery - x,color);
+		PutPixel64K(centerx - y,centery + x,color);
+
+		if (d < 0) d += x * 4 + 6;
+		else d += (x - y--) * 4 + 10;
+	}
 }

@@ -9,11 +9,12 @@
 	1.extern void MouseInit(void);
 	2.extern void Set_MouseRange(int ,int ,int ,int)；
 	3.extern void Get_MouseStatus(_Mouse);
-	4.extern void Get_MouseBK(_Mouse);
-	5.extern void Draw_MouseBK(_Mouse);
-	6.extern void Draw_Mouse(_Mouse);
-	7.extern unsigned int If_MousePress(int, int, int, int,_Mouse);
-	8.extern void MouseReset();
+	4.extern void Get_Mouseshape(int (*MouseShape)[10]);
+	5.extern void Get_MouseBK(_Mouse);
+	6.extern void Draw_MouseBK(_Mouse);
+	7.extern void Draw_Mouse(_Mouse);
+	8.extern unsigned int If_MousePress(int, int, int, int,_Mouse);
+	9.extern void MouseReset();
 
 *History:
 	1.Date:
@@ -46,6 +47,7 @@ typedef struct _mouse
 extern void MouseInit(void);
 extern void Set_MouseRange(int ,int ,int ,int);
 extern void Get_MouseStatus(_Mouse*);
+extern void Get_Mouseshape(int (*MouseShape)[10]);
 extern void Get_MouseBK(_Mouse);
 extern void Draw_MouseBK(_Mouse);
 extern void Draw_Mouse(_Mouse);

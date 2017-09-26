@@ -93,7 +93,6 @@ const int MouseShape3[MouseShapey][MouseShapex] = {
 
 /*鼠标遮挡的背景缓存数组，全局变量，BK是background的缩写*/
 int Mouse_BK[MouseShapey][MouseShapex] = {0};
-extern _ModeInfo ModeInfo;
 
 /*************************************************
 *Function: void MouseInit(void);
@@ -363,7 +362,6 @@ unsigned int If_MousePress(int x1, int y1, int x2, int y2, _Mouse Mouse)
 *************************************************/
 void MouseReset()
 {
-
 	_Mouse Mouse = {0,0,0,1};
 	MouseInit();
 	Set_MouseRange(0,0,ModeInfo.XRes - 1,ModeInfo.YRes - 1);

@@ -22,6 +22,10 @@
     12.extern void Draw_Bmp64K(int, int, const char *);
     13.extern void Draw_Bmp64K_Xor(int, int, const char *);
 
+    14.extern void Draw_Line(int, int, int, int, int);
+    15.extern void Draw_Circle(int, int, int, int);
+
+
 *History:
 	1.Date:
       Author:
@@ -38,27 +42,7 @@
 //VBE模式信息共256字节
 typedef struct _modeinfo
 {
-    short ModeAttr;           //模式的属性
-    char  WinAAttr;
-    char  WinBAttr;            //窗口A,B的属性
-
-    short WinGran;             //位面大小(窗口粒度),以KB为单位
-    short WinSize;             //窗口大小,以KB为单位
-    short WinASeg; 
-    short WinBSeg;             //窗口A,B的起始段址
-    char  far *BankFunc;       //换页调用入口指针
-
-    short charsPerScanLine;    //每条水平扫描线所占的字节数
     short XRes, YRes;          //水平,垂直方向的分辨率
-    char  XCharSize;
-    char  YCharSize;           //字符的宽度和高度
-    char  NumberOfplanes;      //位平面的个数
-    char  BitsPerPixel;        //每像素的位数
-    char  NumberOfBanks;       //CGA逻辑扫描线分组数
-    char  MemoryModel;         //显示内存模式
-    char  BankSize;            //CGA每组扫描线的大小
-    char  NumberOfImagePages;  //可同时载入的最大满屏图像数
-    char  reserve1;            //为页面功能保留
 }_ModeInfo;
 
 //位图文件头BITMAPFILEHEADER，是一个结构体类型。
@@ -119,7 +103,7 @@ extern unsigned int Get_SVGAMode(void);
 extern void Set_ViewPage(unsigned int);
 extern unsigned int Get_ViewPage(void);
 
-/*********************画图相关函数************************/
+/*********************画像素相关函数**********************/
 extern long rgbcolor64K (unsigned char r,unsigned char g, unsigned char b);
 extern void PutPixel64K (int x, int y, unsigned long color);
 extern void PutPixel64K_Xor (int x, int y, unsigned long color);
@@ -131,5 +115,9 @@ extern void Get_BmpFileHeader(FILE *, _BITMAPFileHeader *);
 extern void Get_BmpInfoHeader(FILE *, _BITMAPInfoHeader *);
 extern void Draw_Bmp64K(int, int, const char *);
 extern void Draw_Bmp64K_Xor(int, int, const char *);
+
+/*********************画图相关函数************************/
+extern void Draw_Line(int, int, int, int, int);
+extern void Draw_Circle(int, int, int, int);
 
 #endif

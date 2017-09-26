@@ -15,8 +15,8 @@
 
 **********************************************************/
 
-#ifndef _hz_h_
-#define _hz_h_
+#ifndef _hz_H_
+#define _hz_H_
 
 extern void Puthz16(char *s,int x,int y,int wd,int Px,int Py,char color);
 

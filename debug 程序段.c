@@ -1,71 +1,34 @@
-/**********************************************************
-*Copyright(c) Automation Excellence Class
-*FileName: Debug.c
-*Author: JH Yang
-*Date:  2017/08/06
-*Description: ²¿·Ö´úÂë¼ì²â³ÌÐò
-*Others: Èç²»Ê¹ÓÃ ×¢ÊÍ#define Debug ¼´¿É
-*Function List:
-*History:
-	1.Date : 8/17
-      Author : JH Yang
-      Modification : 0x117Ä£Ê½ÏÂµÄPutPixel64Kº¯Êý¼ì²â
-	2.Date : 8/17
-	  Author : JH Yang
-	  Modification : VGAHIÄ£Ê½ÏÂÍ¼ÐÎ»æÖÆº¯ÊýÊ¾Àý
-**********************************************************/
-
-//#define Debug_VGA
-#define Debug_SVGA
-
-#include "Mouse.h"
-
-#ifdef Debug_SVGA
-	#include "SVGA.H"
-	#define Debug
-#endif
-
-#ifdef Debug_VGA
-	#include "VGA.H"
-	#define Debug
-#endif
-
-
-#ifdef Debug
-extern _ModeInfo ModeInfo;
-
-int main(){
-
-	//*********************************************************   0x117Ä£Ê½ÏÂ PutPixel64K ÒÔ¼° GetPixel64K º¯Êý¼ì²â
-#if 0	
+#if 0
+	//*********************************************************   0x117模式下 PutPixel64K 以及 GetPixel64K 函数检测
 	int x,y,i,j,k,r,g,b;
 
 	Set_SVGAMode(0x117);
 
 	//	PutPixel64K  &  rgbcolor64K
-	for (x = 0; x < 100; x++)
-		for (y = 0; y < 100; y++)
+	for (x = 0; x < 1024; x++)
+		for (y = 0; y < 768; y++)
 		{
 			PutPixel64K (x,y,rgbcolor64K(0x94,0x00,0xd3));
-		//	PutPixel256(x,y,10);
+			// PutPixel256(x,y,10);
 		// getch();
 		}
 
 	//	GetPixel64K
-	for (x = 200; x < 300; x++)
-		for (y = 500; y < 600; y++)
-		{
-			PutPixel64K (x,y,GetPixel64K(x - 200, y - 500));
+	//for (x = 200; x < 300; x++)
+		// for (y = 500; y < 600; y++)
+		// {
+			// PutPixel64K (x,y,GetPixel64K(x - 200, y - 500));
 		//	PutPixel256(x,y,10);
 		// getch();
-		}
+		// }
 
-	getch(); //»­³öÍ¼ÐÎºóÐèÍ£Áô¹Û²ìÍ¼ÐÎ
+	getch(); //画出图形后需停留观察图形
 	return 0;
 #endif
 
-	//**************************************************************  VGAHIÄ£Ê½ÏÂÍ¼ÐÎ»æÖÆº¯ÊýÊ¾Àý
-#if 0	
+
+#if 0
+	//**************************************************************  VGAHI模式下图形绘制函数示例
 	int x,y,i,j;
 	int Cursor[16][10] = {
 		{1,0,0,0,0,0,0,0,0,0},
@@ -137,14 +100,14 @@ int main(){
 #endif
 
 
-	//***************************************************************  Êó±ê¼ì²â
-#if 0	
+#if 0
+	//***************************************************************  鼠标检测
 	_Mouse Old_Mouse, New_Mouse = {0,0,0,1};
-	int i,j; // Ñ­»·±äÁ¿
+	int i,j; // 循环变量
 
 	Set_SVGAMode(0x117);
 
-	//»æÖÆ±³¾°
+	//绘制背景
 	for (i = 0; i < ModeInfo.XRes ; i++)
 		for (j = 0; j < ModeInfo.YRes ; j++)
 		{
@@ -161,7 +124,7 @@ int main(){
 	Old_Mouse = New_Mouse;
 
 	while (1){
-		// Get_MouseStatus  &  If_MousePress º¯Êý¼ì²â³ÌÐò¶Î£¬Ðè¹Ø±ÕSVGAÄ£Ê½
+		// Get_MouseStatus  &  If_MousePress 函数检测程序段，需关闭SVGA模式
 		// Get_MouseStatus(&New_Mouse);
 		// printf("Mouse.x = %d ; Mouse.y = %d ; Mouse.button = %d", New_Mouse.x,New_Mouse.y,New_Mouse.button);
 		// delay(20);
@@ -170,12 +133,12 @@ int main(){
 			// exit(1);
 	
 		//
-		// Draw_Mouse º¯Êý¼ì²â³ÌÐò¶Î
+		// Draw_Mouse 函数检测程序段
 		// New_Mouse.x = 200;
 		// New_Mouse.y = 200;
 		// New_Mouse.shape = 1;
 		// Draw_Mouse(New_Mouse);
-		// Draw_MouseBK  &  Get_MouseBKº¯Êý¼ì²â³ÌÐò¶Î
+		// Draw_MouseBK  &  Get_MouseBK函数检测程序段
 		// for(New_Mouse.y = i = 50, j = 50; j <= 200; j++)
 		// {
 			// New_Mouse.x = j;
@@ -185,7 +148,7 @@ int main(){
 			// delay(50);
 		// }
 		
-		//×ÛºÏ¼ì²â³ÌÐò¶Î
+		//综合检测程序段
 		if(If_MousePress(0,0,50,50,New_Mouse) == 3)
 			exit(1);
 		Get_MouseStatus(&New_Mouse);
@@ -228,26 +191,79 @@ int main(){
 			continue;
 		}
 	}
+	return 0;
 #endif
 
+
 #if 0
-	//*********************************************************   ÌùÍ¼Ïà¹Øº¯Êý¼ì²â
-	int i,j;
+	//*********************************************************   贴图相关函数检测
+	//***********************************  普通贴图
+	int i,j,old_i,old_j;
 	unsigned long Pixel;
 	FILE *fp;
 
 	Set_SVGAMode(0x117);
-	Draw_Bmp64K(0,0,"./logo256.bmp");
+	Draw_Bmp64K(-100,-100,"./logo256.bmp");
 	getch();
+
+	//***********************************  异或贴图
+	/*for (i = old_i = 0; i < 1024; i++)
+		for (j = old_j = 0; j < 768; j++)
+			PutPixel64K(i,j,0xffff);
+	for (i = old_i = 10; i < 15; i++)
+		for (j = old_j = 10; j < 11; j++)
+		{
+			old_i = i;
+			old_j = j;
+			Draw_Bmp64K_Xor(i,j,"./1.bmp");
+			delay(200);
+			Draw_Bmp64K_Xor(old_i,old_j,"./1.bmp");
+			//delay(100);
+		}
+
+	getch();*/
+
+	retrurn 0;
+	
 #endif
 
-
-#if 1
-	//*********************************************************    ºº×ÖÏÔÊ¾Ïà¹Øº¯Êý¼ì²â
+#if 0
+	//*********************************************************    画线画圆相关函数检测
 	Set_SVGAMode(0x117);
-	Puthz16("����", 100, 100, 20, 1, 1, 0xffff);
+
+	Draw_DotLine(0,0,100,100,0xffff);
+	Draw_Line(100,100,200,200,0xffff);
+	Draw_Circle(400,400,20,0xffff);
+
 	getch();
+
 #endif
 
-}
+
+#if 0
+	//*********************************************************    键盘相关函数检测
+	int x;
+	system("cls");
+	while(1)
+	{
+		if (!bioskey(1))
+			x = bioskey(0);
+		if (x == ESC)
+		{
+			system("cls");
+			printf("GOOD BYE!!!!");
+			delay(3000);
+			exit(1);
+		}else if (x == ENTER)
+		{
+			printf("\n");
+		}else if (x == KEY_C && (bioskey(2) & 0x04))
+		{
+			system("cls");
+			printf("HELLO!!!!");
+			delay(3000);
+		}else printf("%c",x);
+	}
+
 #endif
+

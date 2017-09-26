@@ -30,8 +30,8 @@
 
 **********************************************************/
 
-#ifndef _Key_h
-#define _Key_h
+#ifndef _Key_H_
+#define _Key_H_
 
 #define LEFT 0x4b00
 #define RIGHT 0x4d00  
